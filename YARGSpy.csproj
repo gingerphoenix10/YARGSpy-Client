@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>YARGSpy</AssemblyName>
+    <Product>YARGSpy Client</Product>
+    <Version>1.0.0</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+      https://nuget.samboy.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+    <RootNamespace>YARGSpy</RootNamespace>
+	<YARGDir Condition=" '$(YARGDir)' == '' ">D:\YARC\YARG Installs\fde5dfa1-c9d3-436f-9aa9-1e931c7cbdc2\installation</YARGDir> <!-- okay this is gonna be a problem lmao -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\yargspy-W.png" />
+    <None Remove="Assets\yargspy_bundle" />
+    <None Remove="yargspy-W.png" />
+    <None Remove="yargspy_bundle" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\yargspy-W.png" />
+    <EmbeddedResource Include="Assets\yargspy_bundle" />
+  </ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+		<PackageReference Include="BepInEx.Core" Version="5.*" />
+		<PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="UnityEngine.Modules" Version="2021.3.21" IncludeAssets="compile" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\Assembly-CSharp.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\Assembly-CSharp-firstpass.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\YARG.Core.Package.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\Unity.TextMeshPro.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\Unity.Addressables.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\Unity.ResourceManager.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\UnityEngine.UI.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\ZString.dll" Private="false" Publicize="True" />
+		<Reference Include="$(YARGDir)\YARG_Data\Managed\ZString-Ext.dll" Private="false" Publicize="True" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="$(YARGDir)\BepInEx\plugins\$(AssemblyName)" />
+		<Copy SourceFiles="$(OutputPath)\$(AssemblyName).pdb" DestinationFolder="$(YARGDir)\BepInEx\plugins\$(AssemblyName)" />
+	</Target>
+</Project>
