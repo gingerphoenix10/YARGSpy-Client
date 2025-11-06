@@ -1,4 +1,19 @@
-﻿using Cysharp.Text;
+﻿/*
+ *  [Patches]
+ *  
+ *  SaveReplay - Postfix
+ *  - Sends the replay to YARGSpy servers once a replay is saved
+ *  
+ *  Start - Prefix
+ *  - Initializes the in-game leaderboard once a song is started
+ *  
+ *  Update - Postfix
+ *  - Checks if score is updated, and perform UI updates / overtake detections
+ *  
+ */
+
+
+using Cysharp.Text;
 using HarmonyLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -112,7 +127,7 @@ internal static class GameManagerPatch
         }
         if (!SpySettings.instance.ShowBoard.Value)
             return;
-        __instance.SongStarted += () =>
+        __instance.SongStarted += async () =>
         {
             if (__instance.IsPractice || !__instance.IsSongStarted)
                 return;
@@ -139,91 +154,78 @@ internal static class GameManagerPatch
 
             string hash = BitConverter.ToString(__instance.Song.Hash.HashBytes).Replace("-", string.Empty).ToLower();
 
-            UnityWebRequest getId = UnityWebRequest.Get($"https://api.yargspy.com/song/hashToId?hash={hash}");
-            getId.SetRequestHeader("content-type", "application/json");
-            var idOp = getId.SendWebRequest();
-            idOp.completed += _ =>
+            UnityWebRequest getId = await APIHelper.Get($"/song/hashToId?hash={hash}");
+            if (getId.result != UnityWebRequest.Result.Success)
             {
-                if (getId.result != UnityWebRequest.Result.Success)
+                Plugin.Logger.LogError("[id] " + getId.error);
+            }
+            else
+            {
+                if (getId.responseCode != 200)
                 {
-                    Plugin.Logger.LogError("[id] " + getId.error);
+                    Plugin.Logger.LogError("[id] " + getId.downloadHandler.text);
+                    return;
+                }
+                JObject idReponse = JObject.Parse(getId.downloadHandler.text);
+                string songId = idReponse["id"]!.ToString();
+                Dictionary<string, object> leaderboard = new()
+                    {
+                        { "allowedModifiers", new List<int>() { 0,4,5,8,9,10 } },
+                        { "allowSlowdowns", false },
+                        { "id", songId },
+                        { "instrument", 255 },
+                        { "limit", 100 },
+                        { "page", 1 }
+                    };
+
+                UnityWebRequest getBoard = await APIHelper.Post("/song/leaderboard", JsonConvert.SerializeObject(leaderboard));
+                if (getBoard.result != UnityWebRequest.Result.Success || getBoard.responseCode != 200)
+                {
+                    Plugin.Logger.LogError("[board] " + getBoard.error);
                 }
                 else
                 {
-                    if (getId.responseCode != 200)
+                    JObject boardResponse = JObject.Parse(getBoard.downloadHandler.text);
+                    entries = (JArray)boardResponse["entries"];
+                    placement = entries.Count + 1;
+                    for (int i = 1; i <= 5; i++)
                     {
-                        Plugin.Logger.LogError("[id] " + getId.downloadHandler.text);
-                        return;
+                        if (entries.Count >= i)
+                        {
+                            Transform remote = scores.Find(i.ToString());
+                            Transform local = scores.Find((i + 1).ToString());
+                            remote.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[i - 1]["uploader"]["username"]!.ToString();
+                            TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)remote.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[i - 1]["score"]!.ToString()));
+                            remote.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{i}";
+                            remote.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[i - 1]["childrenScores"][0]["percent"]) * 100)}%";
+                            remote.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
+                            remote.gameObject.SetActive(true);
+                            remote.GetComponent<Image>().color = PlayerColor;
+                            if (SpySettings.user != null && entries[i - 1]["uploader"]["username"]!.ToString() == Username)
+                                remote.GetComponent<Image>().color = SelfColor;
+                            local.GetComponent<Image>().color = LocalColor;
+                            local.Find("Name").GetComponent<TextMeshProUGUI>().text = Username;
+                            local.Find("Score").GetComponent<TextMeshProUGUI>().text = "0";
+                            local.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{placement}";
+                            local.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = false;
+                            local.gameObject.SetActive(true);
+                        }
                     }
-                    JObject idReponse = JObject.Parse(getId.downloadHandler.text);
-                    string songId = idReponse["id"]!.ToString();
-                    Dictionary<string, object> leaderboard = new()
-                        {
-                            { "allowedModifiers", new List<int>() { 0,4,5,8,9,10 } },
-                            { "allowSlowdowns", false },
-                            { "id", songId },
-                            { "instrument", 255 },
-                            { "limit", 100 },
-                            { "page", 1 }
-                        };
-
-                    UnityWebRequest getBoard = new UnityWebRequest("https://api.yargspy.com/song/leaderboard", "POST");
-                    getBoard.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(leaderboard)));
-                    getBoard.downloadHandler = new DownloadHandlerBuffer();
-                    getBoard.SetRequestHeader("content-type", "application/json");
-
-                    var boardOp = getBoard.SendWebRequest();
-                    boardOp.completed += _ =>
+                    if (entries.Count > 5)
                     {
-                        if (getBoard.result != UnityWebRequest.Result.Success || getBoard.responseCode != 200)
-                        {
-                            Plugin.Logger.LogError("[board] " + getBoard.error);
-                        }
-                        else
-                        {
-                            JObject boardResponse = JObject.Parse(getBoard.downloadHandler.text);
-                            entries = (JArray)boardResponse["entries"];
-                            placement = entries.Count + 1;
-                            for (int i = 1; i <= 5; i++)
-                            {
-                                if (entries.Count >= i)
-                                {
-                                    Transform remote = scores.Find(i.ToString());
-                                    Transform local = scores.Find((i + 1).ToString());
-                                    remote.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[i - 1]["uploader"]["username"]!.ToString();
-                                    TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)remote.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[i - 1]["score"]!.ToString()));
-                                    remote.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{i}";
-                                    remote.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[i - 1]["childrenScores"][0]["percent"]) * 100)}%";
-                                    remote.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
-                                    remote.gameObject.SetActive(true);
-                                    remote.GetComponent<Image>().color = PlayerColor;
-                                    if (SpySettings.user != null && entries[i - 1]["uploader"]["username"]!.ToString() == Username)
-                                        remote.GetComponent<Image>().color = SelfColor;
-                                    local.GetComponent<Image>().color = LocalColor;
-                                    local.Find("Name").GetComponent<TextMeshProUGUI>().text = Username;
-                                    local.Find("Score").GetComponent<TextMeshProUGUI>().text = "0";
-                                    local.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{placement}";
-                                    local.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = false;
-                                    local.gameObject.SetActive(true);
-                                }
-                            }
-                            if (entries.Count > 5)
-                            {
-                                Transform above = scores.Find("5");
-                                above.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[entries.Count - 1]["uploader"]["username"]!.ToString();
-                                TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)above.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[entries.Count - 1]["score"]!.ToString()));
-                                above.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{entries.Count}";
-                                above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[entries.Count - 1]["childrenScores"][0]["percent"]) * 100)}%";
-                                above.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
-                                above.GetComponent<Image>().color = PlayerColor;
-                                if (SpySettings.user != null && entries[entries.Count - 1]["uploader"]["username"]!.ToString() == Username)
-                                    above.GetComponent<Image>().color = SelfColor;
-                                above.gameObject.SetActive(true);
-                            }
-                        }
-                    };
+                        Transform above = scores.Find("5");
+                        above.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[entries.Count - 1]["uploader"]["username"]!.ToString();
+                        TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)above.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[entries.Count - 1]["score"]!.ToString()));
+                        above.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{entries.Count}";
+                        above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[entries.Count - 1]["childrenScores"][0]["percent"]) * 100)}%";
+                        above.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
+                        above.GetComponent<Image>().color = PlayerColor;
+                        if (SpySettings.user != null && entries[entries.Count - 1]["uploader"]["username"]!.ToString() == Username)
+                            above.GetComponent<Image>().color = SelfColor;
+                        above.gameObject.SetActive(true);
+                    }
                 }
-            };
+            }
 
         };
     }

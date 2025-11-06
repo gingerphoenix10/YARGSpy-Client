@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using YARG.Menu.Settings;
@@ -27,7 +28,7 @@ public class SpySettings
     public ToggleSetting UploadScores { get; } = new(true);
     public ToggleSetting ShowBoard { get; } = new(true);
 
-    public void LoginToYARGSpy()
+    public async Task LoginToYARGSpy()
     {
         Dictionary<string, string> login = new()
             {
@@ -35,31 +36,24 @@ public class SpySettings
                 { "password", PasswordSettingVisual.value }
             };
 
-        UnityWebRequest req = new UnityWebRequest("https://api.yargspy.com/user/login", "POST");
-        req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(login)));
-        req.downloadHandler = new DownloadHandlerBuffer();
-        req.SetRequestHeader("content-type", "application/json");
+        UnityWebRequest req = await APIHelper.Post("/user/login", JsonConvert.SerializeObject(login));
 
-        var operation = req.SendWebRequest();
-        operation.completed += _ =>
+        if (req.result != UnityWebRequest.Result.Success)
         {
-            if (req.result != UnityWebRequest.Result.Success)
+            Plugin.Logger.LogError(req.error);
+        }
+        else
+        {
+            if (req.responseCode != 200)
             {
-                Plugin.Logger.LogError(req.error);
+                Plugin.Logger.LogError(req.downloadHandler.text);
+                return;
             }
-            else
-            {
-                if (req.responseCode != 200)
-                {
-                    Plugin.Logger.LogError(req.downloadHandler.text);
-                    return;
-                }
-                JObject response = JObject.Parse(req.downloadHandler.text);
-                Token.Value = response["token"]!.ToString();
-                SettingsManager.SaveSettings();
-                APIHelper.GetUser();
-            }
-        };
+            JObject response = JObject.Parse(req.downloadHandler.text);
+            Token.Value = response["token"]!.ToString();
+            SettingsManager.SaveSettings();
+            APIHelper.GetUser();
+        }
     }
 
     public void LogoutYARGSpy()

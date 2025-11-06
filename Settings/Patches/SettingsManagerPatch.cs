@@ -1,4 +1,23 @@
-﻿using HarmonyLib;
+﻿/*
+ *  [Patches]
+ *  
+ *  LoadSettings - Postfix
+ *  - When loading regular settings, also load SpySettings
+ *  
+ *  SaveSettings - Postfix
+ *  - When saving regular settings, also save SpySettings
+ *  
+ *  GetSettingByName - Prefix
+ *  - When attempting to find a setting by name, first search SpySettings before
+ *    the regular settings search
+ *  
+ *  InvokeButton - Prefix
+ *  - When invoking a method by name (for buttons), first search if the method
+ *    is in SpySettings before regular settings
+ *  
+ */
+
+using HarmonyLib;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -93,12 +112,8 @@ internal static class SettingsManagerPatch
         var method = typeof(SpySettings).GetMethod(name);
 
         if (method == null)
-        {
-            Plugin.Logger.LogInfo("SpySettings doesn't contain " + name);
             return true;
-        }
 
-        Plugin.Logger.LogInfo("SpySettings does contain " + name);
         method.Invoke(SpySettings.instance, null);
         return false;
     }

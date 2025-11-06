@@ -1,4 +1,12 @@
-﻿using HarmonyLib;
+﻿/*
+ *  [Patches]
+ *  
+ *  TryParseAndLoadLanguage - Postfix
+ *  - Add custom text strings to the current language right after the original is parsed
+ * 
+ */
+
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Text;

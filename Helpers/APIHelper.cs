@@ -1,11 +1,15 @@
 ﻿using BepInEx;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SocialPlatforms.Impl;
 using YARG.Core.Replays;
 using YARG.Core.Song;
 using YARG.Gameplay;
@@ -17,28 +21,75 @@ namespace YARGSpy.Helpers;
 
 public class APIHelper
 {
-    public static void GetUser()
+
+    private static readonly string API_URI = "https://api.yargspy.com";
+
+    public static async Task<UnityWebRequest> Get(string endpoint, bool useToken = false, string contentType = "application/json")
+    {
+        UnityWebRequest GetReq = UnityWebRequest.Get("https://api.yargspy.com"+endpoint);
+        GetReq.SetRequestHeader("content-type", contentType ?? "application/json");
+
+        if (useToken)
+            GetReq.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
+
+        await GetReq.SendWebRequest();
+        return GetReq;
+    }
+    public static async Task<UnityWebRequest> Post(string endpoint, object data, bool useToken = false, string contentType = "application/json")
+    {
+        UnityWebRequest GetReq = null;
+
+        if (data is string)
+        {
+            Plugin.Logger.LogInfo("Using string data");
+            GetReq = new UnityWebRequest(API_URI + endpoint, "POST");
+            GetReq.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes((string)data));
+            GetReq.downloadHandler = new DownloadHandlerBuffer();
+        }
+        else if (data is WWWForm)
+        {
+            WWWForm fData = (WWWForm)data;
+            foreach (string name in fData.fileNames)
+            {
+                Plugin.Logger.LogInfo("File");
+                Plugin.Logger.LogInfo(name);
+            }
+            GetReq = UnityWebRequest.Post(API_URI + endpoint, fData);
+        }
+        else
+        {
+            GetReq = new UnityWebRequest(API_URI + endpoint, "POST");
+            Plugin.Logger.LogInfo("Unknown data type");
+        }
+
+        if (!(data is WWWForm) && !contentType.IsNullOrWhiteSpace())
+            GetReq.SetRequestHeader("content-type", contentType ?? "application/json");
+
+        if (useToken)
+            GetReq.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
+
+        await GetReq.SendWebRequest();
+        return GetReq;
+    }
+
+    public static async void GetUser()
     {
         if (SpySettings.instance.Token.Value.IsNullOrWhiteSpace())
             return;
-        UnityWebRequest GetUserReq = UnityWebRequest.Get("https://api.yargspy.com/user/profile");
-        GetUserReq.SetRequestHeader("content-type", "application/json");
-        GetUserReq.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
-        var UserOp = GetUserReq.SendWebRequest();
-        UserOp.completed += _ =>
+
+        UnityWebRequest GetUserReq = await Get("/user/profile", true);
+        if (GetUserReq.result != UnityWebRequest.Result.Success || GetUserReq.responseCode != 200)
         {
-            if (GetUserReq.result != UnityWebRequest.Result.Success || GetUserReq.responseCode != 200)
-            {
-                ToastManager.ToastError($"YARGSpy login error:\n{GetUserReq.error}");
-                return;
-            }
-            SpySettings.user = (JObject)JObject.Parse(GetUserReq.downloadHandler.text)["user"];
-            ToastManager.ToastSuccess($"Successfully logged into YARGSpy as {SpySettings.user["username"]!.ToString()}!", () => { });
-            SpySettings.BuildLoggedInSettings();
-        };
+            ToastManager.ToastError($"YARGSpy login error:\n{GetUserReq.error}");
+            return;
+        }
+
+        SpySettings.user = (JObject)JObject.Parse(GetUserReq.downloadHandler.text)["user"];
+        ToastManager.ToastSuccess($"Successfully logged into YARGSpy as {SpySettings.user["username"]!.ToString()}!", () => { });
+        SpySettings.BuildLoggedInSettings();
     }
 
-    public static void UploadScore(GameManager __instance, ReplayInfo __result, List<RequestFile> files = null)
+    public static async void UploadScore(GameManager __instance, ReplayInfo __result, List<RequestFile> files = null)
     {
         if (files == null)
             files = new();
@@ -58,48 +109,44 @@ public class APIHelper
                 file.mimeType
             );
         }
-        form.AddField("reqType", "complete");
+        form.AddField("reqType", files.Count>0 ? "complete" : "replayOnly");
 
-        UnityWebRequest sendScore = UnityWebRequest.Post("https://api.yargspy.com/replay/register", form);
-        sendScore.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
-        var sendScoreOp = sendScore.SendWebRequest();
-        sendScoreOp.completed += _ =>
+        UnityWebRequest sendScore = await Post("/replay/register", form, true, "");
+
+        if (sendScore.responseCode == 422 && files.Count == 0)
         {
-            if (sendScore.responseCode == 422)
+            switch (__instance.Song.SubType)
             {
-                switch (__instance.Song.SubType)
-                {
-                    case EntryType.Ini:
-                        if (__instance.Song is UnpackedIniEntry)
+                case EntryType.Ini:
+                    if (__instance.Song is UnpackedIniEntry)
+                    {
+                        UnpackedIniEntry entry = (UnpackedIniEntry)(__instance.Song);
+                        string iniPath = Path.Combine(entry._location, "song.ini");
+                        if (!File.Exists(iniPath))
                         {
-                            UnpackedIniEntry entry = (UnpackedIniEntry)(__instance.Song);
-                            string iniPath = Path.Combine(entry._location, "song.ini");
-                            if (!File.Exists(iniPath))
-                            {
-                                ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
-                                return;
-                            }
-                            string chartPath = Path.Combine(entry._location, IniSubEntry.CHART_FILE_TYPES[(int)entry._chartFormat].Filename);
-                            if (!File.Exists(chartPath))
-                            {
-                                ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
-                                return;
-                            }
-
-                            UploadScore(__instance, __result, new()
-                            {
-                                new RequestFile("chartFile", chartPath, entry._chartFormat==ChartFormat.Chart?"application/octet":"audio/midi"),
-                                new RequestFile("songDataFile", iniPath, "application/octet")
-                            });
+                            ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
+                            return;
                         }
-                        break;
-                }
+                        string chartPath = Path.Combine(entry._location, IniSubEntry.CHART_FILE_TYPES[(int)entry._chartFormat].Filename);
+                        if (!File.Exists(chartPath))
+                        {
+                            ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
+                            return;
+                        }
+
+                        UploadScore(__instance, __result, new()
+                        {
+                            new RequestFile("chartFile", chartPath, entry._chartFormat==ChartFormat.Chart?"application/octet":"audio/midi"),
+                            new RequestFile("songDataFile", iniPath, "application/octet")
+                        });
+                    }
+                    break;
             }
-            else if (sendScore.responseCode == 200 || sendScore.responseCode == 201)
-                ToastManager.ToastSuccess("Score Submitted to YARGSpy!");
-            else
-                ToastManager.ToastError("Upload failed: HTTP Error\n" + sendScore.error);
-        };
+        }
+        else if (sendScore.responseCode == 200 || sendScore.responseCode == 201)
+            ToastManager.ToastSuccess("Score Submitted to YARGSpy!");
+        else
+            ToastManager.ToastError("Upload failed: HTTP Error\n" + sendScore.error);
     }
     public class RequestFile
     {
@@ -112,5 +159,41 @@ public class APIHelper
             path = Path;
             mimeType = MimeType;
         }
+    }
+
+}
+
+// Used from https://gist.github.com/krzys-h/9062552e33dd7bd7fe4a6c12db109a1a . Makes requests
+public class UnityWebRequestAwaiter : INotifyCompletion
+{
+    private UnityWebRequestAsyncOperation asyncOp;
+    private Action continuation;
+
+    public UnityWebRequestAwaiter(UnityWebRequestAsyncOperation asyncOp)
+    {
+        this.asyncOp = asyncOp;
+        asyncOp.completed += OnRequestCompleted;
+    }
+
+    public bool IsCompleted { get { return asyncOp.isDone; } }
+
+    public void GetResult() { }
+
+    public void OnCompleted(Action continuation)
+    {
+        this.continuation = continuation;
+    }
+
+    private void OnRequestCompleted(AsyncOperation obj)
+    {
+        continuation();
+    }
+}
+
+public static class ExtensionMethods
+{
+    public static UnityWebRequestAwaiter GetAwaiter(this UnityWebRequestAsyncOperation asyncOp)
+    {
+        return new UnityWebRequestAwaiter(asyncOp);
     }
 }
