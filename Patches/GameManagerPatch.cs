@@ -31,6 +31,8 @@ using YARG.Gameplay;
 using YARG.Menu.Persistent;
 using YARGSpy.Settings;
 using YARGSpy.Helpers;
+using YARG.Gameplay.HUD;
+using YARG.Gameplay.Player;
 
 namespace YARGSpy.Patches;
 
@@ -132,7 +134,7 @@ internal static class GameManagerPatch
             if (__instance.IsPractice || !__instance.IsSongStarted)
                 return;
 
-            GameObject SpyCanvas = (GameObject)GameObject.Instantiate(Plugin.bundle[0]);
+            GameObject SpyCanvas = GameObject.Instantiate(Plugin.bundle.LoadAsset<GameObject>("YARGSpyCanvas"));
             SpyCanvas.GetComponent<Canvas>().sortingOrder = 1;
             scores = SpyCanvas.transform.Find("Scores");
             foreach (Transform scoreBox in scores)

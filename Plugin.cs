@@ -18,7 +18,7 @@ public class Plugin : BaseUnityPlugin
 {
     internal static new ManualLogSource Logger;
     private static readonly Harmony Patcher = new(MyPluginInfo.PLUGIN_GUID);
-    public static UnityEngine.Object[] bundle;
+    public static AssetBundle bundle;
 
     private void Awake()
     {
@@ -50,7 +50,7 @@ public class Plugin : BaseUnityPlugin
                 }
             }
         };
-        bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("YARGSpy.Assets.yargspy_bundle")).LoadAllAssets();
+        bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("YARGSpy.Assets.yargspy_bundle"));
 
         if (Settings.Patches.SettingsManagerPatch.ready == null)
             Settings.Patches.SettingsManagerPatch.ready = new UnityEvent();

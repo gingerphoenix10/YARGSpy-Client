@@ -46,21 +46,10 @@ public class APIHelper
             GetReq.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes((string)data));
             GetReq.downloadHandler = new DownloadHandlerBuffer();
         }
-        else if (data is WWWForm)
-        {
-            WWWForm fData = (WWWForm)data;
-            foreach (string name in fData.fileNames)
-            {
-                Plugin.Logger.LogInfo("File");
-                Plugin.Logger.LogInfo(name);
-            }
-            GetReq = UnityWebRequest.Post(API_URI + endpoint, fData);
-        }
+        else if (data is WWWForm form)
+            GetReq = UnityWebRequest.Post(API_URI + endpoint, form);
         else
-        {
             GetReq = new UnityWebRequest(API_URI + endpoint, "POST");
-            Plugin.Logger.LogInfo("Unknown data type");
-        }
 
         if (!(data is WWWForm) && !contentType.IsNullOrWhiteSpace())
             GetReq.SetRequestHeader("content-type", contentType ?? "application/json");
