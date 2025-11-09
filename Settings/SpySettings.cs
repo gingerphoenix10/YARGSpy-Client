@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using YARG.Core.Input;
 using YARG.Menu.Settings;
 using YARG.Settings;
 using YARG.Settings.Metadata;

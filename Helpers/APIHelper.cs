@@ -41,6 +41,10 @@ public class APIHelper
             GetReq.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
 
         await GetReq.SendWebRequest();
+
+        if (GetReq.responseCode >= 400 && GetReq.responseCode < 500)
+            Plugin.Logger.LogError($"\n\nGET error:\nEndpoint: {endpoint}\nContent Type: {contentType ?? "application/json"}\nResponse:\n{GetReq.downloadHandler.text}\n\n");
+
         return GetReq;
     }
     public static async Task<UnityWebRequest> Post(string endpoint, object data, bool useToken = false, string contentType = "application/json")
@@ -66,6 +70,10 @@ public class APIHelper
             GetReq.SetRequestHeader("Authorization", $"Bearer {SpySettings.instance.Token.Value}");
 
         await GetReq.SendWebRequest();
+
+        if (GetReq.responseCode >= 400 && GetReq.responseCode < 500)
+            Plugin.Logger.LogError($"\n\nPOST error:\nEndpoint: {endpoint}\nContent Type: {contentType ?? "application/json"}\nResponse:\n{GetReq.downloadHandler.text}\n\n");
+
         return GetReq;
     }
 

@@ -53,6 +53,9 @@ internal static class GameManagerPatch
     [HarmonyPostfix]
     internal static void SaveReplayPostfix(GameManager __instance, ref ReplayInfo __result)
     {
+        if (__instance._songRunner.SongTime < __instance.SongLength)
+            return;
+
         if (!SpySettings.instance.UploadScores.Value)
             return;
 
@@ -110,23 +113,11 @@ internal static class GameManagerPatch
     [HarmonyPrefix]
     internal static void StartPrefix(GameManager __instance)
     {
-        switch (__instance.Song.SubType)
-        {
-            case EntryType.Ini:
-                if (__instance.Song is UnpackedIniEntry)
-                {
-                    UnpackedIniEntry entry = (UnpackedIniEntry)(__instance.Song);
-                    string iniPath = Path.Combine(entry._location, "song.ini");
-                    if (!File.Exists(iniPath))
-                        return;
-                    string chartPath = Path.Combine(entry._location, IniSubEntry.CHART_FILE_TYPES[(int)entry._chartFormat].Filename);
-                    if (!File.Exists(chartPath))
-                        return;
-                    Plugin.Logger.LogInfo(iniPath);
-                    Plugin.Logger.LogInfo(chartPath);
-                }
-                break;
-        }
+        placement = 1;
+        entries = null;
+        scores = null;
+        currentScore = 0;
+        Username = null;
         if (!SpySettings.instance.ShowBoard.Value)
             return;
         __instance.SongStarted += async () =>

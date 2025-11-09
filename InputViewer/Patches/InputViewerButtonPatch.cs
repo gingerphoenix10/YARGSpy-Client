@@ -47,12 +47,26 @@ internal static class InputViewerButtonPatch
         if (!(__instance is SpyInputViewerButton button))
             return true;
 
-        button._inputTimeText.SetText(Math.Round(button._inputTime, 3));
+        button._inputTimeText.SetText(button._inputTime.ToString("F3"));
         button._pressCountText.SetText(button._pressCount);
         Color buttonColor = new Color(0.1f, 0.1f, 0.1f);
         buttonColor.a = (button._isPressed ? 0.75f : 1f);
         button._imageHighlight.color = buttonColor;
         button._coverImage.color = button.ButtonColor;
+        return false;
+    }
+
+    [HarmonyPatch(nameof(InputViewerButton.Update))]
+    [HarmonyPrefix]
+    internal static bool UpdatePrefix(InputViewerButton __instance)
+    {
+        if (!(__instance is SpyInputViewerButton button))
+            return true;
+        if (button._isPressed)
+        {
+            button._holdTime = button._gameManager.InputTime - button._holdStartTime + 2.0;
+            button._holdTimeText.SetText(button._holdTime.ToString("F3"));
+        }
         return false;
     }
 }
