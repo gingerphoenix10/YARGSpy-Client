@@ -2,17 +2,24 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SocialPlatforms.Impl;
+using YARG.Core.Extensions;
+using YARG.Core.IO;
+using YARG.Core.IO.Ini;
 using YARG.Core.Replays;
 using YARG.Core.Song;
+using YARG.Core.Song.Cache;
 using YARG.Gameplay;
+using YARG.Helpers;
 using YARG.Menu.Persistent;
 using YARGSpy.Settings;
 using YARGSpy.Settings.Patches;
@@ -23,6 +30,7 @@ public class APIHelper
 {
 
     private static readonly string API_URI = "https://api.yargspy.com";
+    //private static readonly string API_URI = "http://localhost:3000";
 
     public static async Task<UnityWebRequest> Get(string endpoint, bool useToken = false, string contentType = "application/json")
     {
@@ -93,8 +101,8 @@ public class APIHelper
         {
             form.AddBinaryData(
                 file.fieldName,
-                File.ReadAllBytes(file.path),
-                Path.GetFileName(file.path),
+                file.contents,
+                file.fileName,
                 file.mimeType
             );
         }
@@ -107,16 +115,15 @@ public class APIHelper
             switch (__instance.Song.SubType)
             {
                 case EntryType.Ini:
-                    if (__instance.Song is UnpackedIniEntry)
+                    if (__instance.Song is UnpackedIniEntry iniEntry)
                     {
-                        UnpackedIniEntry entry = (UnpackedIniEntry)(__instance.Song);
-                        string iniPath = Path.Combine(entry._location, "song.ini");
+                        string iniPath = Path.Combine(iniEntry._location, "song.ini");
                         if (!File.Exists(iniPath))
                         {
                             ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
                             return;
                         }
-                        string chartPath = Path.Combine(entry._location, IniSubEntry.CHART_FILE_TYPES[(int)entry._chartFormat].Filename);
+                        string chartPath = Path.Combine(iniEntry._location, IniSubEntry.CHART_FILE_TYPES[(int)iniEntry._chartFormat].Filename);
                         if (!File.Exists(chartPath))
                         {
                             ToastManager.ToastError("Couldn't upload: Song not on leaderboard, and chart file could not be found");
@@ -125,10 +132,59 @@ public class APIHelper
 
                         UploadScore(__instance, __result, new()
                         {
-                            new RequestFile("chartFile", chartPath, entry._chartFormat==ChartFormat.Chart?"application/octet":"audio/midi"),
+                            new RequestFile("chartFile", chartPath, iniEntry._chartFormat==ChartFormat.Chart?"application/octet":"audio/midi"),
                             new RequestFile("songDataFile", iniPath, "application/octet")
                         });
                     }
+                    break;
+                case EntryType.Sng:
+                    var song = SngFile.TryLoadFromFile(__instance.Song.ActualLocation, true);
+                    File.WriteAllText(Path.Combine(PathHelper.PersistentDataPath, "export.json"), JsonConvert.SerializeObject(song.Modifiers));
+                    if (!song.IsLoaded)
+                        return;
+                    string ini = "[Song]";
+
+                    List<object> entries = new()
+                    {
+                        song.Modifiers._booleans,
+                        song.Modifiers._doubles,
+                        song.Modifiers._floats,
+                        song.Modifiers._int16s,
+                        song.Modifiers._int32s,
+                        song.Modifiers._int64Arrays,
+                        song.Modifiers._int64s,
+                        song.Modifiers._strings,
+                        song.Modifiers._uint16s,
+                        song.Modifiers._uint32s,
+                        song.Modifiers._uint64s,
+                    };
+
+                    foreach (var typeEntry in entries)
+                    {
+                        if (!(typeEntry is IDictionary dict))
+                            continue;
+                        foreach (DictionaryEntry valueEntry in dict) {
+                            ini += "\n"+valueEntry.Key.ToString()+" = "+valueEntry.Value.ToString();
+                        }
+                    }
+
+                    List<RequestFile> uploadFiles = new();
+                    uploadFiles.Add(new RequestFile("songDataFile", Encoding.UTF8.GetBytes(ini), "song.ini", "application/octet"));
+                    foreach (KeyValuePair<string, SngFileListing> file in song.Listings)
+                    {
+                        if (file.Key.EndsWith(".chart") || file.Key.EndsWith(".mid") || file.Key.EndsWith(".midi"))
+                        {
+                            using (MemoryStream ms = new MemoryStream())
+                            {
+                                song.CreateStream(file.Key, file.Value).CopyTo(ms);
+                                uploadFiles.Add(new RequestFile("chartFile", ms.ToArray(), file.Key, file.Key.EndsWith(".chart") ? "application/octet" : "audio/midi"));
+                            }
+                        }
+                    }
+                    UploadScore(__instance, __result, uploadFiles);
+                    break;
+                default:
+                    Plugin.Logger.LogInfo("Entry type: " + __instance.Song.SubType);
                     break;
             }
         }
@@ -140,12 +196,22 @@ public class APIHelper
     public class RequestFile
     {
         public string fieldName;
-        public string path;
+        public Byte[] contents;
+        public string fileName;
         public string mimeType;
-        public RequestFile(string FieldName, string Path, string MimeType)
+        public RequestFile(string FieldName, string path, string MimeType)
         {
             fieldName = FieldName;
-            path = Path;
+            contents = File.ReadAllBytes(path);
+            fileName = Path.GetFileName(path);
+            mimeType = MimeType;
+        }
+
+        public RequestFile(string FieldName, Byte[] Contents, string FileName, string MimeType)
+        {
+            fieldName = FieldName;
+            contents = Contents;
+            fileName = FileName;
             mimeType = MimeType;
         }
     }
