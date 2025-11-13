@@ -28,13 +28,17 @@ internal static class TabPatch
     internal static bool SpawnSettingVisualPrefix(ISettingType setting, Transform container, ref BaseSettingVisual __result)
     {
         Type type = setting.GetType();
+        string b = type.Name;
         while (type != null)
         {
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(AbstractCustomSetting<>))
             {
                 var method = type.GetMethod("CreateSettingObject");
                 if (method != null)
-                    method.Invoke(setting, new Transform[] { container });
+                {
+                    __result = (BaseSettingVisual)method.Invoke(setting, new Transform[] { container });
+                    return false;
+                }
             }
             type = type.BaseType;
         }

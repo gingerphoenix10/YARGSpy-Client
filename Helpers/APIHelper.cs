@@ -23,6 +23,7 @@ using YARG.Helpers;
 using YARG.Menu.Persistent;
 using YARGSpy.Settings;
 using YARGSpy.Settings.Patches;
+using static YARG.Settings.Preview.FakeTrackPlayer;
 
 namespace YARGSpy.Helpers;
 
@@ -191,6 +192,22 @@ public class APIHelper
                     }
                     UploadScore(__instance, __result, uploadFiles);
                     break;
+                case EntryType.CON:
+                    var stream = new FileStream(__instance.Song.ActualLocation, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
+                    List<CONFileListing> listings = CONFile.TryParseListings(__instance.Song.ActualLocation, stream);
+                    AbridgedFileInfo abridged = new(__instance.Song.ActualLocation);
+
+                    if (!listings.FindListing("songs/songs.dta", out var listing))
+                        return;
+
+                    var data = CONFileStream.LoadFile(stream, listing);
+                    var container = YARGDTAReader.Create(data);
+                    DTAEntry entry = DTAEntry.Create("name", container);
+
+                    Plugin.Logger.LogInfo(entry.Name);
+
+                    break;
+                case EntryType.ExCON:
                 default:
                     Plugin.Logger.LogInfo("Entry type: " + __instance.Song.SubType);
                     break;

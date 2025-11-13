@@ -26,6 +26,7 @@ using System.Text;
 using UnityEngine.Events;
 using YARG.Core.Logging;
 using YARG.Helpers;
+using YARG.Menu.Settings.Visuals;
 using YARG.Settings;
 using YARG.Settings.Types;
 using YARGSpy.Settings.CustomTypes;
@@ -116,5 +117,16 @@ internal static class SettingsManagerPatch
 
         method.Invoke(SpySettings.instance, null);
         return false;
+    }
+}
+
+[HarmonyPatch(typeof(BaseSettingVisual))]
+internal static class BaseSettingVisualPatch
+{
+    [HarmonyPatch(nameof(BaseSettingVisual.AssignSetting))]
+    [HarmonyPostfix]
+    internal static void AssignSettingPostfix(string settingName, bool hasDescription)
+    {
+        Plugin.Logger.LogInfo("Name: " + settingName);
     }
 }

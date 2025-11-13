@@ -33,6 +33,8 @@ using YARGSpy.Settings;
 using YARGSpy.Helpers;
 using YARG.Gameplay.HUD;
 using YARG.Gameplay.Player;
+using YARG.Core;
+using YARG.Core.Game;
 
 namespace YARGSpy.Patches;
 
@@ -125,13 +127,43 @@ internal static class GameManagerPatch
             if (__instance.IsPractice || !__instance.IsSongStarted)
                 return;
 
+            List<int> AllowedModifiers = new() { 0, 4, 5, 8, 9, 10 };
+
+            int preset = 0;
+            foreach (BasePlayer plrBase in __instance.Players)
+            {
+                if (plrBase.Player.Profile.IsModifierActive(Modifier.AllHopos))
+                    AllowedModifiers.Add(1);
+                if (plrBase.Player.Profile.IsModifierActive(Modifier.AllTaps))
+                    AllowedModifiers.Add(2);
+                if (plrBase.Player.Profile.IsModifierActive(Modifier.HoposToTaps))
+                    AllowedModifiers.Add(3);
+                if (plrBase.Player.Profile.IsModifierActive(Modifier.NoKicks))
+                    AllowedModifiers.Add(6);
+                if (plrBase.Player.Profile.IsModifierActive(Modifier.UnpitchedOnly))
+                    AllowedModifiers.Add(7);
+
+                if (plrBase.Player.EnginePreset == EnginePreset.Default)
+                    preset = 0;
+                else if (plrBase.Player.EnginePreset == EnginePreset.Casual)
+                    preset = 1;
+                else if (plrBase.Player.EnginePreset == EnginePreset.Precision)
+                    preset = 2;
+                else
+                    return; // lmao imagine using custom engine
+            }
+
+            Instrument inst;
+            if (__instance.Players.Count == 1)
+                inst = __instance.Players[0].Player.Profile.CurrentInstrument;
+            else
+                inst = Instrument.Band;
+
             GameObject SpyCanvas = GameObject.Instantiate(Plugin.bundle.LoadAsset<GameObject>("YARGSpyCanvas"));
             SpyCanvas.GetComponent<Canvas>().sortingOrder = 1;
             scores = SpyCanvas.transform.Find("Scores");
             foreach (Transform scoreBox in scores)
-            {
                 scoreBox.gameObject.SetActive(false);
-            }
 
             Username = SpySettings.user != null ? SpySettings.user["username"]!.ToString() : __instance.Players[0].Player.Profile.Name;
 
@@ -162,14 +194,19 @@ internal static class GameManagerPatch
                 JObject idReponse = JObject.Parse(getId.downloadHandler.text);
                 string songId = idReponse["id"]!.ToString();
                 Dictionary<string, object> leaderboard = new()
-                    {
-                        { "allowedModifiers", new List<int>() { 0,4,5,8,9,10 } },
-                        { "allowSlowdowns", false },
-                        { "id", songId },
-                        { "instrument", 255 },
-                        { "limit", 100 },
-                        { "page", 1 }
-                    };
+                {
+                    { "allowedModifiers", AllowedModifiers },
+                    { "allowSlowdowns", false },
+                    { "id", songId },
+                    { "instrument", inst },
+                    { "limit", 1000 },
+                    { "page", 1 }
+                };
+                if (inst != Instrument.Band)
+                {
+                    leaderboard["difficulty"] = __instance.Players[0].Player.Profile.CurrentDifficulty;
+                    leaderboard["engine"] = preset;
+                }
 
                 UnityWebRequest getBoard = await APIHelper.Post("/song/leaderboard", JsonConvert.SerializeObject(leaderboard));
                 if (getBoard.result != UnityWebRequest.Result.Success || getBoard.responseCode != 200)
@@ -190,7 +227,19 @@ internal static class GameManagerPatch
                             remote.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[i - 1]["uploader"]["username"]!.ToString();
                             TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)remote.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[i - 1]["score"]!.ToString()));
                             remote.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{i}";
-                            remote.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[i - 1]["childrenScores"][0]["percent"]) * 100)}%";
+
+                            if (inst == Instrument.Band)
+                            {
+                                double total = 0;
+                                JArray childEntries = (JArray)entries[i - 1]["childrenScores"];
+                                foreach (JObject childEntry in childEntries)
+                                    total += (double)childEntry["percent"];
+                                total /= childEntries.Count;
+                                remote.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor(total) * 100}%";
+                            }
+                            else
+                                remote.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[i - 1]["percent"]) * 100)}%";
+
                             remote.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
                             remote.gameObject.SetActive(true);
                             remote.GetComponent<Image>().color = PlayerColor;
@@ -272,7 +321,6 @@ internal static class GameManagerPatch
                 {
                     new TweensHelper.TweenInfo(5, 0, 1f, TweensHelper.EasingStyles.BelowSix, (float val) =>
                     {
-                        Plugin.Logger.LogInfo(val);
                         above.localPosition = new Vector3(val, above.localPosition.y, above.localPosition.z);
                     })
                 });

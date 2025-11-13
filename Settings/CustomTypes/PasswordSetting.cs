@@ -15,7 +15,7 @@ public class PasswordSetting : AbstractCustomSetting<string>
     public override BaseSettingVisual CreateSettingObject(Transform container)
     {
         var settingPrefab = Addressables.LoadAssetAsync<GameObject>("Setting/Int")
-    .WaitForCompletion();
+            .WaitForCompletion();
         var go = GameObject.Instantiate(settingPrefab, container);
 
         // Set the setting, and cache the object
