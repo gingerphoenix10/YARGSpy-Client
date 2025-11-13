@@ -11,7 +11,7 @@ A BepInEx 5 plugin for [Yet Another Rhythm Game (Stable)](https://github.com/YAR
   - The `BepInEx` folder, as well as files such as `doorstop_config.ini` and `winhttp.dll` should be next to the YARG.exe executable
   - More setup may be required on Linux / MacOS. See the [BepInEx docs](https://docs.bepinex.dev/articles/user_guide/installation/index.html) for more info
 - Launch YARG once to generate BepInEx's files. Close the game once you get to the main menu
-- Download `YARGSpy.dll` (and optionally `YARGSpy.pdb` if you'd like to help with debugging) from the [YARG Discord Server](https://discord.gg/sqpu4R552r)'s `#leaderboard-dev` channel. GitHub releases will be made in the future, however in testing all versions are posted on DIscord
+- Download `YARGSpy.dll` (and optionally `YARGSpy.pdb` if you'd like to help with debugging) from the [Releases Tab](https://github.com/gingerphoenix10/YARGSpy-Client/releases) or [YARG Discord Server](https://discord.gg/sqpu4R552r)'s `#leaderboard-dev` channel. (Discord versions will be outdated).
 - In YARG's install folder, navigate to the `BepInEx\Plugins` directory which should've been generated after the first launch.
 - Move the `YARGSpy.dll` and `YARGSpy.pdb` (if downloaded) files into the Plugins folder
 - When you next launch YARG, you should see the logo replaced with the YARGSpy logo. That means the mod sucessfully installed. Log into your YARGSpy account in settings, and you're ready to play
