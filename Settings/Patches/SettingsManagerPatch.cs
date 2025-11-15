@@ -119,14 +119,3 @@ internal static class SettingsManagerPatch
         return false;
     }
 }
-
-[HarmonyPatch(typeof(BaseSettingVisual))]
-internal static class BaseSettingVisualPatch
-{
-    [HarmonyPatch(nameof(BaseSettingVisual.AssignSetting))]
-    [HarmonyPostfix]
-    internal static void AssignSettingPostfix(string settingName, bool hasDescription)
-    {
-        Plugin.Logger.LogInfo("Name: " + settingName);
-    }
-}

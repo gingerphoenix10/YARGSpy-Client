@@ -33,8 +33,15 @@ internal static class LocalizationManagerPatch
         LocalizationManager._localizationMap.Add("Settings.Button.LoginToYARGSpy", "Login to YARGSpy");
 
         LocalizationManager._localizationMap.Add("Settings.Button.LogoutYARGSpy", "Logout from YARGSpy");
+
         LocalizationManager._localizationMap.Add("Settings.Header.Options", "Options");
+
         LocalizationManager._localizationMap.Add("Settings.Setting.UploadScores.Name", "Automatically Upload Scores");
         LocalizationManager._localizationMap.Add("Settings.Setting.ShowBoard.Name", "Show leaderboard in songs");
+        LocalizationManager._localizationMap.Add("Settings.Button.DownloadScores", "Download YARGSpy scores");
+
+        LocalizationManager._localizationMap.Add("Menu.Common.Yes", "Yes");
+        LocalizationManager._localizationMap.Add("Menu.Common.No", "No");
+        LocalizationManager._localizationMap.Add("Menu.Common.YesAll", "Yes to All");
     }
 }
