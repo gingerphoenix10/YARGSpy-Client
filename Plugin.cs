@@ -20,6 +20,7 @@ public class Plugin : BaseUnityPlugin
     internal static new ManualLogSource Logger;
     private static readonly Harmony Patcher = new(MyPluginInfo.PLUGIN_GUID);
     public static AssetBundle bundle;
+    public static bool Initialized = false;
 
     private void Awake()
     {
@@ -34,7 +35,9 @@ public class Plugin : BaseUnityPlugin
         {
             if (scene.name == "MenuScene")
             {
-                GlobalVariables.Instance.CurrentVersion += " - YARGSpy v1.1.1";
+                if (!Initialized)
+                    GlobalVariables.Instance.CurrentVersion += " - YARGSpy v1.1.2";
+                Initialized = true;
                 Image yargLogo = GameObject.Find("/Menu Manager").transform.Find("MainMenu/Logo").GetComponent<Image>();
                 Texture2D texture = new Texture2D(1, 1);
                 Stream imgStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("YARGSpy.Assets.yargspy-W.png");
