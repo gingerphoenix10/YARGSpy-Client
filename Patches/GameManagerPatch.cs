@@ -46,6 +46,7 @@ internal static class GameManagerPatch
     public static Transform scores;
     public static int currentScore;
     public static string Username;
+    public static Instrument? inst;
 
     public static readonly Color PlayerColor = new Color(0, 0, 0, 0.37f);
     public static readonly Color LocalColor = new Color(0.289f, 0f, 0.591f, 0.37f);
@@ -120,6 +121,7 @@ internal static class GameManagerPatch
         scores = null;
         currentScore = 0;
         Username = null;
+        inst = null;
         if (!SpySettings.instance.ShowBoard.Value)
             return;
         __instance.SongStarted += async () =>
@@ -153,7 +155,6 @@ internal static class GameManagerPatch
                     return; // lmao imagine using custom engine
             }
 
-            Instrument inst;
             if (__instance.Players.Count == 1)
                 inst = __instance.Players[0].Player.Profile.CurrentInstrument;
             else
@@ -259,7 +260,10 @@ internal static class GameManagerPatch
                         above.Find("Name").GetComponent<TextMeshProUGUI>().text = entries[entries.Count - 1]["uploader"]["username"]!.ToString();
                         TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)above.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(entries[entries.Count - 1]["score"]!.ToString()));
                         above.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{entries.Count}";
-                        above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[entries.Count - 1]["childrenScores"][0]["percent"]) * 100)}%";
+                        if (inst == Instrument.Band)
+                            above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[entries.Count - 1]["childrenScores"][0]["percent"]) * 100)}%";
+                        else
+                            above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(entries[entries.Count - 1]["percent"]) * 100)}%";
                         above.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
                         above.GetComponent<Image>().color = PlayerColor;
                         if (SpySettings.user != null && entries[entries.Count - 1]["uploader"]["username"]!.ToString() == Username)
@@ -311,7 +315,10 @@ internal static class GameManagerPatch
             above.Find("Name").GetComponent<TextMeshProUGUI>().text = newEntry["uploader"]["username"]!.ToString();
             TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)above.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(newEntry["score"]!.ToString()));
             above.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{placement - 1}";
-            above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(newEntry["childrenScores"][0]["percent"]) * 100)}%";
+            if (inst == Instrument.Band)
+                above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(newEntry["childrenScores"][0]["percent"]) * 100)}%";
+            else
+                above.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(newEntry["percent"]) * 100)}%";
             above.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
             above.GetComponent<Image>().color = PlayerColor;
             if (SpySettings.user != null && newEntry["uploader"]["username"]!.ToString() == Username)
@@ -340,7 +347,10 @@ internal static class GameManagerPatch
             moveDown.Find("Name").GetComponent<TextMeshProUGUI>().text = overtakenEntry["uploader"]["username"]!.ToString();
             TextMeshProExtensions.SetTextFormat<string, int>((TMP_Text)moveDown.Find("Score").GetComponent<TextMeshProUGUI>(), "{0}{1:N0}", "", int.Parse(overtakenEntry["score"]!.ToString()));
             moveDown.Find("Placement").GetComponent<TextMeshProUGUI>().text = $"#{placement + 1}";
-            moveDown.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(overtakenEntry["childrenScores"][0]["percent"]) * 100)}%";
+            if (inst == Instrument.Band)
+                moveDown.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(overtakenEntry["childrenScores"][0]["percent"]) * 100)}%";
+            else
+                moveDown.Find("Percentage").GetComponent<TextMeshProUGUI>().text = $"{(int)Math.Floor((double)(overtakenEntry["percent"]) * 100)}%";
             moveDown.Find("Percentage").GetComponent<TextMeshProUGUI>().enabled = true;
             moveDown.GetComponent<Image>().color = PlayerColor;
             if (SpySettings.user != null && overtakenEntry["uploader"]["username"]!.ToString() == Username)

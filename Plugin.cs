@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using YARG;
 using YARG.Settings;
 using YARGSpy.Helpers;
 using YARGSpy.Settings;
@@ -33,6 +34,7 @@ public class Plugin : BaseUnityPlugin
         {
             if (scene.name == "MenuScene")
             {
+                GlobalVariables.Instance.CurrentVersion += " - YARGSpy v1.1.1";
                 Image yargLogo = GameObject.Find("/Menu Manager").transform.Find("MainMenu/Logo").GetComponent<Image>();
                 Texture2D texture = new Texture2D(1, 1);
                 Stream imgStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("YARGSpy.Assets.yargspy-W.png");
