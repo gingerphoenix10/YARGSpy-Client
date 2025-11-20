@@ -59,12 +59,12 @@ public class APIHelper
             GetReq.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes((string)data));
             GetReq.downloadHandler = new DownloadHandlerBuffer();
         }
-        else if (data is WWWForm form)
+        else if (data is List<IMultipartFormSection> form)
             GetReq = UnityWebRequest.Post(API_URI + endpoint, form);
         else
             GetReq = new UnityWebRequest(API_URI + endpoint, "POST");
 
-        if (!(data is WWWForm) && !contentType.IsNullOrWhiteSpace())
+        if (!(data is List<IMultipartFormSection>) && !contentType.IsNullOrWhiteSpace())
             GetReq.SetRequestHeader("content-type", contentType ?? "application/json");
 
         if (useToken)
@@ -99,23 +99,23 @@ public class APIHelper
     {
         if (files == null)
             files = new();
-        WWWForm form = new WWWForm();
-        form.AddBinaryData(
+        List<IMultipartFormSection> form = new();
+        form.Add(new MultipartFormFileSection(
             "replayFile",
             File.ReadAllBytes(__result.FilePath),
             Path.GetFileName(__result.FilePath),
             "application/octet-stream"
-        );
+        ));
         foreach (RequestFile file in files)
         {
-            form.AddBinaryData(
+            form.Add(new MultipartFormFileSection(
                 file.fieldName,
                 file.contents,
                 file.fileName,
                 file.mimeType
-            );
+            ));
         }
-        form.AddField("reqType", files.Count>0 ? "complete" : "replayOnly");
+        form.Add(new MultipartFormDataSection("reqType", files.Count>0 ? "complete" : "replayOnly"));
 
         UnityWebRequest sendScore = await Post("/replay/register", form, true, "");
 

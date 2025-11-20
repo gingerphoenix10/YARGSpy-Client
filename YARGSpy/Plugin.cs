@@ -36,7 +36,7 @@ public class Plugin : BaseUnityPlugin
             if (scene.name == "MenuScene")
             {
                 if (!Initialized)
-                    GlobalVariables.Instance.CurrentVersion += " - YARGSpy v1.1.2";
+                    GlobalVariables.Instance.CurrentVersion += " - YARGSpy v1.1.3";
                 Initialized = true;
                 Image yargLogo = GameObject.Find("/Menu Manager").transform.Find("MainMenu/Logo").GetComponent<Image>();
                 Texture2D texture = new Texture2D(1, 1);
